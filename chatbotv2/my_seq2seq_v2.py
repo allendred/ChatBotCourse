@@ -21,10 +21,10 @@ max_seq_len = 8
 word_set = {}
 
 def load_word_set():
-    file_object = open('./segment_result_lined.3000000.pair.less', 'r')
-    while True:
-        line = file_object.readline()
-        if line:
+    with open('./segment_result_lined.3000000.pair.less', 'r') as file_object:
+        while True:
+            if not (line := file_object.readline()):
+                break
             line_pair = line.split('|')
             line_question = line_pair[0]
             line_answer = line_pair[1]
@@ -32,9 +32,6 @@ def load_word_set():
                 word_set[word] = 1
             for word in line_answer.decode('utf-8').split(' '):
                 word_set[word] = 1
-        else:
-            break
-    file_object.close()
 
 def load_vectors(input):
     """从vectors.bin加载词向量，返回一个word_vector_dict的词典，key是词，value是200维的向量
@@ -82,32 +79,31 @@ def load_vectors(input):
 def init_seq(input_file):
     """读取切好词的文本文件，加载全部词序列
     """
-    file_object = open(input_file, 'r')
-    vocab_dict = {}
-    while True:
-        question_seq = []
-        answer_seq = []
-        line = file_object.readline()
-        if line:
+    with open(input_file, 'r') as file_object:
+        vocab_dict = {}
+        while True:
+            if not (line := file_object.readline()):
+                break
             line_pair = line.split('|')
             line_question = line_pair[0]
             line_answer = line_pair[1]
-            for word in line_question.decode('utf-8').split(' '):
-                if word_vector_dict.has_key(word):
-                    question_seq.append(word_vector_dict[word])
-            for word in line_answer.decode('utf-8').split(' '):
-                if word_vector_dict.has_key(word):
-                    answer_seq.append(word_vector_dict[word])
-        else:
-            break
-        question_seqs.append(question_seq)
-        answer_seqs.append(answer_seq)
-    file_object.close()
+            question_seq = [
+                word_vector_dict[word]
+                for word in line_question.decode('utf-8').split(' ')
+                if word_vector_dict.has_key(word)
+            ]
+
+            answer_seq = [
+                word_vector_dict[word]
+                for word in line_answer.decode('utf-8').split(' ')
+                if word_vector_dict.has_key(word)
+            ]
+
+            question_seqs.append(question_seq)
+            answer_seqs.append(answer_seq)
 
 def vector_sqrtlen(vector):
-    len = 0
-    for item in vector:
-        len += item * item
+    len = sum(item * item for item in vector)
     len = math.sqrt(len)
     return len
 
@@ -116,9 +112,7 @@ def vector_cosine(v1, v2):
         sys.exit(1)
     sqrtlen1 = vector_sqrtlen(v1)
     sqrtlen2 = vector_sqrtlen(v2)
-    value = 0
-    for item1, item2 in zip(v1, v2):
-        value += item1 * item2
+    value = sum(item1 * item2 for item1, item2 in zip(v1, v2))
     return value / (sqrtlen1*sqrtlen2)
 
 

@@ -47,7 +47,7 @@ _DIGIT_RE = re.compile(br"\d")
 
 def gunzip_file(gz_path, new_path):
   """Unzips from gz_path into new_path."""
-  print("Unpacking %s to %s" % (gz_path, new_path))
+  print(f"Unpacking {gz_path} to {new_path}")
   with gzip.open(gz_path, "rb") as gz_file:
     with open(new_path, "wb") as new_file:
       for line in gz_file:
@@ -56,15 +56,13 @@ def gunzip_file(gz_path, new_path):
 
 def get_wmt_enfr_train_set(directory):
   """Download the WMT en-fr training corpus to directory unless it's there."""
-  train_path = os.path.join(directory, "train")
-  return train_path
+  return os.path.join(directory, "train")
 
 
 def get_wmt_enfr_dev_set(directory):
   """Download the WMT en-fr training corpus to directory unless it's there."""
   dev_name = "test"
-  dev_path = os.path.join(directory, dev_name)
-  return dev_path
+  return os.path.join(directory, dev_name)
 
 
 def basic_tokenizer(sentence):
@@ -93,29 +91,28 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
       if None, basic_tokenizer will be used.
     normalize_digits: Boolean; if true, all digits are replaced by 0s.
   """
-  if not gfile.Exists(vocabulary_path):
-    print("Creating vocabulary %s from data %s" % (vocabulary_path, data_path))
-    vocab = {}
-    with gfile.GFile(data_path, mode="rb") as f:
-      counter = 0
-      for line in f:
-        counter += 1
-        if counter % 100000 == 0:
-          print("  processing line %d" % counter)
-        line = tf.compat.as_bytes(line)
-        tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
-        for w in tokens:
-          word = _DIGIT_RE.sub(b"0", w) if normalize_digits else w
-          if word in vocab:
-            vocab[word] += 1
-          else:
-            vocab[word] = 1
-      vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
-      if len(vocab_list) > max_vocabulary_size:
-        vocab_list = vocab_list[:max_vocabulary_size]
-      with gfile.GFile(vocabulary_path, mode="wb") as vocab_file:
-        for w in vocab_list:
-          vocab_file.write(w + b"\n")
+  if gfile.Exists(vocabulary_path):
+    return
+  print(f"Creating vocabulary {vocabulary_path} from data {data_path}")
+  vocab = {}
+  with gfile.GFile(data_path, mode="rb") as f:
+    for counter, line in enumerate(f, start=1):
+      if counter % 100000 == 0:
+        print("  processing line %d" % counter)
+      line = tf.compat.as_bytes(line)
+      tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
+      for w in tokens:
+        word = _DIGIT_RE.sub(b"0", w) if normalize_digits else w
+        if word in vocab:
+          vocab[word] += 1
+        else:
+          vocab[word] = 1
+    vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
+    if len(vocab_list) > max_vocabulary_size:
+      vocab_list = vocab_list[:max_vocabulary_size]
+    with gfile.GFile(vocabulary_path, mode="wb") as vocab_file:
+      for w in vocab_list:
+        vocab_file.write(w + b"\n")
 
 
 def initialize_vocabulary(vocabulary_path):
@@ -137,15 +134,14 @@ def initialize_vocabulary(vocabulary_path):
   Raises:
     ValueError: if the provided vocabulary_path does not exist.
   """
-  if gfile.Exists(vocabulary_path):
-    rev_vocab = []
-    with gfile.GFile(vocabulary_path, mode="rb") as f:
-      rev_vocab.extend(f.readlines())
-    rev_vocab = [tf.compat.as_bytes(line.strip()) for line in rev_vocab]
-    vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
-    return vocab, rev_vocab
-  else:
+  if not gfile.Exists(vocabulary_path):
     raise ValueError("Vocabulary file %s not found.", vocabulary_path)
+  rev_vocab = []
+  with gfile.GFile(vocabulary_path, mode="rb") as f:
+    rev_vocab.extend(f.readlines())
+  rev_vocab = [tf.compat.as_bytes(line.strip()) for line in rev_vocab]
+  vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
+  return vocab, rev_vocab
 
 
 def sentence_to_token_ids(sentence, vocabulary,
@@ -167,10 +163,7 @@ def sentence_to_token_ids(sentence, vocabulary,
     a list of integers, the token-ids for the sentence.
   """
 
-  if tokenizer:
-    words = tokenizer(sentence)
-  else:
-    words = basic_tokenizer(sentence)
+  words = tokenizer(sentence) if tokenizer else basic_tokenizer(sentence)
   if not normalize_digits:
     return [vocabulary.get(w, UNK_ID) for w in words]
   # Normalize digits by 0 before looking words up in the vocabulary.
@@ -193,19 +186,18 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
       if None, basic_tokenizer will be used.
     normalize_digits: Boolean; if true, all digits are replaced by 0s.
   """
-  if not gfile.Exists(target_path):
-    print("Tokenizing data in %s" % data_path)
-    vocab, _ = initialize_vocabulary(vocabulary_path)
-    with gfile.GFile(data_path, mode="rb") as data_file:
-      with gfile.GFile(target_path, mode="w") as tokens_file:
-        counter = 0
-        for line in data_file:
-          counter += 1
-          if counter % 100000 == 0:
-            print("  tokenizing line %d" % counter)
-          token_ids = sentence_to_token_ids(tf.compat.as_bytes(line), vocab,
-                                            tokenizer, normalize_digits)
-          tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
+  if gfile.Exists(target_path):
+    return
+  print(f"Tokenizing data in {data_path}")
+  vocab, _ = initialize_vocabulary(vocabulary_path)
+  with gfile.GFile(data_path, mode="rb") as data_file:
+    with gfile.GFile(target_path, mode="w") as tokens_file:
+      for counter, line in enumerate(data_file, start=1):
+        if counter % 100000 == 0:
+          print("  tokenizing line %d" % counter)
+        token_ids = sentence_to_token_ids(tf.compat.as_bytes(line), vocab,
+                                          tokenizer, normalize_digits)
+        tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
 
 def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size, tokenizer=None):
@@ -231,10 +223,10 @@ def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size, tokenizer
   train_path = get_wmt_enfr_train_set(data_dir)
   dev_path = get_wmt_enfr_dev_set(data_dir)
 
-  input_train_path = train_path + ".input"
-  output_train_path = train_path + ".output"
-  input_dev_path = dev_path + ".input"
-  output_dev_path = dev_path + ".output"
+  input_train_path = f'{train_path}.input'
+  output_train_path = f'{train_path}.output'
+  input_dev_path = f'{dev_path}.input'
+  output_dev_path = f'{dev_path}.output'
   return prepare_data(data_dir, input_train_path, output_train_path, input_dev_path, output_dev_path, en_vocabulary_size,
                       fr_vocabulary_size, tokenizer)
 

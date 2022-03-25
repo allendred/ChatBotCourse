@@ -31,7 +31,7 @@ class SequencePattern(object):
 
     def __init__(self, name=None, in_seq_len=None, out_seq_len=None):
         if name is not None:
-            assert hasattr(self, "%s_sequence" % name)
+            assert hasattr(self, f"{name}_sequence")
             self.PATTERN_NAME = name
         if in_seq_len:
             self.INPUT_SEQUENCE_LENGTH = in_seq_len
@@ -47,7 +47,7 @@ class SequencePattern(object):
         
         This procedure defines the pattern which the seq2seq RNN will be trained to find.
         '''
-        return getattr(self, "%s_sequence" % self.PATTERN_NAME)(x)
+        return getattr(self, f"{self.PATTERN_NAME}_sequence")(x)
 
     def maxmin_dup_sequence(self, x):
         '''
@@ -61,8 +61,7 @@ class SequencePattern(object):
         '''
         Generate sorted version of original sequence
         '''
-        ret = np.array( sorted(x) )[:self.OUTPUT_SEQUENCE_LENGTH]
-        return ret
+        return np.array( sorted(x) )[:self.OUTPUT_SEQUENCE_LENGTH]
 
     def reversed_sequence(self, x):
         '''
@@ -126,20 +125,18 @@ class TFLearnSeq2Seq(object):
         #print ("my_sequence_loss logits=%s" % (logits,))
         #print ("my_sequence_loss targets=%s" % (targets,))
         weights = [tf.ones_like(yp, dtype=tf.float32) for yp in targets]
-        #print ("my_sequence_loss weights=%s" % (weights,))
-        sl = seq2seq.sequence_loss(logits, targets, weights)
         #print ("my_sequence_loss return = %s" % sl)
-        return sl
+        return seq2seq.sequence_loss(logits, targets, weights)
 
-    def accuracy(self, y_pred, y_true, x_in):		# y_pred is [-1, self.out_seq_len, num_decoder_symbols]; y_true is [-1, self.out_seq_len]
+    def accuracy(self, y_pred, y_true, x_in):    # y_pred is [-1, self.out_seq_len, num_decoder_symbols]; y_true is [-1, self.out_seq_len]
         '''
         Compute accuracy of the prediction, based on the true labels.  Use the average number of equal
         values.
         '''
         pred_idx = tf.to_int32(tf.argmax(y_pred, 2))		# [-1, self.out_seq_len]
-        #print ("my_accuracy pred_idx = %s" % pred_idx)
-        accuracy = tf.reduce_mean(tf.cast(tf.equal(pred_idx, y_true), tf.float32), name='acc')
-        return accuracy
+        return tf.reduce_mean(
+            tf.cast(tf.equal(pred_idx, y_true), tf.float32), name='acc'
+        )
     
     def model(self, mode="train", num_layers=1, cell_size=32, cell_type="BasicLSTMCell", embedding_size=20, learning_rate=0.0001,
               tensorboard_verbose=0, checkpoint_path=None):
@@ -155,7 +152,11 @@ class TFLearnSeq2Seq(object):
         '''
         assert mode in ["train", "predict"]
 
-        checkpoint_path = checkpoint_path or ("%s%ss2s_checkpoint.tfl" % (self.data_dir or "", "/" if self.data_dir else ""))
+        checkpoint_path = (
+            checkpoint_path
+            or f'{self.data_dir or ""}{"/" if self.data_dir else ""}s2s_checkpoint.tfl'
+        )
+
         GO_VALUE = self.out_max_int + 1		# unique integer value used to trigger decoder outputs in the seq2seq RNN
 
         network = tflearn.input_data(shape=[None, self.in_seq_len + self.out_seq_len], dtype=tf.int32, name="XY")
@@ -168,11 +169,11 @@ class TFLearnSeq2Seq(object):
         go_input = tf.mul( tf.ones_like(decoder_inputs[0], dtype=tf.int32), GO_VALUE ) # insert "GO" symbol as the first decoder input; drop the last decoder input
         decoder_inputs = [go_input] + decoder_inputs[: self.out_seq_len-1]				# insert GO as first; drop last decoder input
 
-        feed_previous = not (mode=="train")
+        feed_previous = mode != "train"
 
         #print ("feed_previous = %s" % str(feed_previous))
-        print ("encoder inputs: %s" % str(encoder_inputs))
-        print ("decoder inputs: %s" % str(decoder_inputs))
+        print(f"encoder inputs: {str(encoder_inputs)}")
+        print(f"decoder inputs: {str(decoder_inputs)}")
         #print ("len decoder inputs: %s" % len(decoder_inputs))
 
         self.n_input_symbols = self.in_max_int + 1		# default is integers from 0 to 9 
@@ -203,15 +204,18 @@ class TFLearnSeq2Seq(object):
                                                                         initial_state_attention=False,
                                                                         feed_previous=feed_previous)
         else:
-            raise Exception('[TFLearnSeq2Seq] Unknown seq2seq model %s' % self.seq2seq_model)
-            
-        tf.add_to_collection(tf.GraphKeys.LAYER_VARIABLES + '/' + "seq2seq_model", model_outputs)	# for TFLearn to know what to save and restore
+            raise Exception(f'[TFLearnSeq2Seq] Unknown seq2seq model {self.seq2seq_model}')
+
+        tf.add_to_collection(
+            f'{tf.GraphKeys.LAYER_VARIABLES}/seq2seq_model', model_outputs
+        )
+
 
         # model_outputs: list of the same length as decoder_inputs of 2D Tensors with shape [batch_size x output_size] containing the generated outputs.
         #print ("model outputs: %s" % model_outputs)
         network = tf.pack(model_outputs, axis=1)		# shape [-1, n_decoder_inputs (= self.out_seq_len), num_decoder_symbols]
         #print ("packed model outputs: %s" % network)
-        
+
         all_vars = tf.get_collection(tf.GraphKeys.VARIABLES)
         #print ("all_vars = %s" % all_vars)
 
@@ -226,8 +230,11 @@ class TFLearnSeq2Seq(object):
                                      metric=self.accuracy,
                                      name="Y")
 
-        model = tflearn.DNN(network, tensorboard_verbose=tensorboard_verbose, checkpoint_path=checkpoint_path)
-        return model
+        return tflearn.DNN(
+            network,
+            tensorboard_verbose=tensorboard_verbose,
+            checkpoint_path=checkpoint_path,
+        )
 
     def train(self, num_epochs=20, num_points=10, model=None, model_params=None, weights_input_fn=None, 
               validation_set=0.1, snapshot_step=5000, batch_size=128, weights_output_fn=None):
@@ -273,15 +280,16 @@ class TFLearnSeq2Seq(object):
         '''
         Construct canonical weights filename, based on model and pattern names.
         '''
-        if not type(iteration_num)==int:
+        if type(iteration_num) != int:
             try:
                 iteration_num = int(iteration_num)
             except Exception as err:
                 return iteration_num
         model_name = self.name or "basic"
-        wfn = "ts2s__%s__%s_%s.tfl" % (model_name, self.sequence_pattern.PATTERN_NAME, iteration_num)
+        wfn = f"ts2s__{model_name}__{self.sequence_pattern.PATTERN_NAME}_{iteration_num}.tfl"
+
         if self.data_dir:
-            wfn = "%s/%s" % (self.data_dir, wfn)
+            wfn = f"{self.data_dir}/{wfn}"
         self.weights_filename = wfn
         return wfn
 
@@ -300,11 +308,6 @@ class TFLearnSeq2Seq(object):
                 weights_input_fn = self.canonical_weights_fn(weights_input_fn)
             if os.path.exists(weights_input_fn):
                 model.load(weights_input_fn)
-                #print ("[TFLearnSeq2Seq] model weights loaded from %s" % weights_input_fn)
-                pass
-            else:
-                #print ("[TFLearnSeq2Seq] MISSING model weights file %s" % weights_input_fn)
-                pass
         return model
 
     def predict(self, Xin, model=None, model_params=None, weights_input_fn=None):
@@ -320,25 +323,28 @@ class TFLearnSeq2Seq(object):
         if not model:
             model = self.model_instance or self.setup_model("predict", model_params, weights_input_fn)
 
-        print ("Xin = %s" % str(Xin))
+        print(f"Xin = {str(Xin)}")
 
         X = np.array(Xin).astype(np.uint32)
         assert len(X)==self.in_seq_len
-        print ("X Input shape=%s, data=%s" % (X.shape, X))
-        print ("Expected output = %s" % str(self.sequence_pattern.generate_output_sequence(X)))
+        print(f"X Input shape={X.shape}, data={X}")
+        print(
+            f"Expected output = {str(self.sequence_pattern.generate_output_sequence(X))}"
+        )
+
 
         Yin = [0]*self.out_seq_len
 
         XY = np.append(X, np.array(Yin).astype(np.float32))
         XY = XY.reshape([-1, self.in_seq_len + self.out_seq_len])		# batch size 1
-        print ("XY Input shape=%s, data=%s" % (XY.shape, XY))
+        print(f"XY Input shape={XY.shape}, data={XY}")
 
         res = model.predict(XY)
         res = np.array(res)
-        print ("prediction shape = %s" % str(res.shape))
+        print(f"prediction shape = {str(res.shape)}")
         y = res.reshape(self.out_seq_len, self.n_output_symbols)
         prediction = np.argmax(y, axis=1)
-        print ("Predicted output sequence: %s" % str(prediction))
+        print(f"Predicted output sequence: {str(prediction)}")
         return prediction, y
 
 
@@ -358,4 +364,4 @@ x = np.random.randint(0, 9, 20)
 prediction, y = ts2s.predict(x, weights_input_fn=1)
 assert len(prediction==8)
 
-os.system("rm -rf %s" % tempdir)
+os.system(f"rm -rf {tempdir}")

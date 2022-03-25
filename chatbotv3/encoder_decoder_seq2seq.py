@@ -114,62 +114,60 @@ class MyLSTM(object):
         XY = []  # lstm的训练输入
         Y = []  # lstm的训练输出
         EOS = [np.ones(self.word_vec_dim)]
-        sample_file_object = open('./samples/1', 'r')
-        lines = sample_file_object.readlines()
-        for line in lines:
-            line = line.strip()
-            split = line.split('|')
-            if len(split) == 2:
-                question = split[0]
-                answer = split[1]
-                print('question:[%s] answer:[%s]' % (question, answer))
+        with open('./samples/1', 'r') as sample_file_object:
+            lines = sample_file_object.readlines()
+            for line in lines:
+                line = line.strip()
+                split = line.split('|')
+                if len(split) == 2:
+                    question = split[0]
+                    answer = split[1]
+                    print(f'question:[{question}] answer:[{answer}]')
 
-                good_sample = True
-                question_seq = [np.zeros(self.word_vec_dim)] * self.max_seq_len
-                answer_seq = [np.zeros(self.word_vec_dim)] * self.max_seq_len
-                answer_seq_one_hot = [np.zeros(self.one_hot_word_vectors_dim)] * self.max_seq_len
-                segments = jieba.cut(question)
-                for index, word in enumerate(segments):
-                    if word in self.word_vector_dict:
-                        vec = np.array(self.word_vector_dict[word]) / self.max_abs_weight
-                        # 防止词过多越界
-                        if self.max_seq_len - index - 1 < 0:
+                    good_sample = True
+                    question_seq = [np.zeros(self.word_vec_dim)] * self.max_seq_len
+                    answer_seq = [np.zeros(self.word_vec_dim)] * self.max_seq_len
+                    answer_seq_one_hot = [np.zeros(self.one_hot_word_vectors_dim)] * self.max_seq_len
+                    segments = jieba.cut(question)
+                    for index, word in enumerate(segments):
+                        if word in self.word_vector_dict:
+                            vec = np.array(self.word_vector_dict[word]) / self.max_abs_weight
+                                                # 防止词过多越界
+                            if self.max_seq_len - index < 1:
+                                good_sample = False
+                                break
+                            # 问题不足max_seq_len在前面补零，存储时倒序存储
+                            question_seq[self.max_seq_len - index - 1] = vec
+                        else:
                             good_sample = False
-                            break
-                        # 问题不足max_seq_len在前面补零，存储时倒序存储
-                        question_seq[self.max_seq_len - index - 1] = vec
-                    else:
-                        good_sample = False
 
-                segments = jieba.cut(answer)
-                last_index = 0
-                for index, word in enumerate(segments):
-                    if word in self.word_vector_dict:
-                        vec = np.array(self.word_vector_dict[word]) / self.max_abs_weight
-                        # 防止词过多越界
-                        if index >= self.max_seq_len - 1:
+                    segments = jieba.cut(answer)
+                    last_index = 0
+                    for index, word in enumerate(segments):
+                        if word in self.word_vector_dict:
+                            vec = np.array(self.word_vector_dict[word]) / self.max_abs_weight
+                            # 防止词过多越界
+                            if index >= self.max_seq_len - 1:
+                                good_sample = False
+                                break
+                            answer_seq[index] = vec
+                        else:
                             good_sample = False
-                            break
-                        answer_seq[index] = vec
-                    else:
-                        good_sample = False
 
-                    if word in self.one_hot_word_vector_dict:
-                        vec = self.one_hot_word_vector_dict[word]
-                        answer_seq_one_hot[index] = vec
-                    else:
-                        good_sample = False
-                    last_index = index
-                # 句子末尾加上EOS
-                answer_seq_one_hot[last_index + 1] = self.one_hot_word_vector_dict[self.eos_word]  # EOS
+                        if word in self.one_hot_word_vector_dict:
+                            vec = self.one_hot_word_vector_dict[word]
+                            answer_seq_one_hot[index] = vec
+                        else:
+                            good_sample = False
+                        last_index = index
+                    # 句子末尾加上EOS
+                    answer_seq_one_hot[last_index + 1] = self.one_hot_word_vector_dict[self.eos_word]  # EOS
 
-                if good_sample:
-                    xy = question_seq + EOS + answer_seq[0:-1]
-                    y = answer_seq_one_hot
-                    XY.append(xy)
-                    Y.append(y)
-
-        sample_file_object.close()
+                    if good_sample:
+                        xy = question_seq + EOS + answer_seq[:-1]
+                        y = answer_seq_one_hot
+                        XY.append(xy)
+                        Y.append(y)
 
         return XY, Y
 
@@ -208,8 +206,7 @@ class MyLSTM(object):
         # 输入是1个shape=(1, 1000)的Tensor，输出是1个shape=(1, 1000)的Tensor
         decoder_layer2_outputs, decoder_layer2_states = rnn.static_rnn(decoder_layer2, decoder_layer1_outputs, initial_state=encoder_layer2_states, dtype=tf.float32, scope='decoder_layer2')
 
-        decoder_layer2_outputs_combine = []
-        decoder_layer2_outputs_combine.append(decoder_layer2_outputs)
+        decoder_layer2_outputs_combine = [decoder_layer2_outputs]
         for i in range(self.max_seq_len - 1):
             decoder_layer2_outputs = tf.unstack(decoder_layer2_outputs, axis=1)[0]
             decoder_layer2_outputs = tf.matmul(decoder_layer2_outputs, weights['hid2tar']) + biases['hid2tar'][i]

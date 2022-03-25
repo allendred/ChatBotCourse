@@ -9,21 +9,19 @@ from jieba import analyse
 
 def segment(input, output):
     input_file = open(input, "r")
-    output_file = open(output, "w")
-    while True:
-        line = input_file.readline()
-        if line:
-            line = line.strip()
-            seg_list = jieba.cut(line)
-            segments = ""
-            for str in seg_list:
-                segments = segments + " " + str
-            segments = segments + "\n"
-            output_file.write(segments)
-        else:
-            break
-    input_file.close()
-    output_file.close()
+    with open(output, "w") as output_file:
+        while True:
+            if line := input_file.readline():
+                line = line.strip()
+                seg_list = jieba.cut(line)
+                segments = ""
+                for str in seg_list:
+                    segments = f'{segments} {str}'
+                segments = segments + "\n"
+                output_file.write(segments)
+            else:
+                break
+        input_file.close()
 
 if __name__ == '__main__':
     if 3 != len(sys.argv):

@@ -12,12 +12,9 @@ np.set_printoptions(threshold=np.nan)
 
 class Primes:
     def __init__(self):
-        self.primes = list()
+        self.primes = []
         for i in range(2, 100):
-            is_prime = True
-            for j in range(2, i-1):
-                if i % j == 0:
-                    is_prime = False
+            is_prime = all(i % j != 0 for j in range(2, i-1))
             if is_prime:
                 self.primes.append(i)
         self.primes_count = len(self.primes)

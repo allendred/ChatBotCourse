@@ -10,8 +10,7 @@ class SubtitleCrawlerPipeline(object):
     def process_item(self, item, spider):
         url = item['url']
         file_name = url.replace('/','_').replace(':','_')
-        fp = open('result/'+file_name, 'w')
-        fp.write(item['body'])
-        fp.close()
+        with open(f'result/{file_name}', 'w') as fp:
+            fp.write(item['body'])
         return item
 
