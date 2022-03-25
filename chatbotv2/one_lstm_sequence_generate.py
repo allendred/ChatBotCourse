@@ -57,22 +57,17 @@ def load_vectors(input):
 def init_seq():
     """读取切好词的文本文件，加载全部词序列
     """
-    file_object = open('zhenhuanzhuan.segment', 'r')
-    vocab_dict = {}
-    while True:
-        line = file_object.readline()
-        if line:
+    with open('zhenhuanzhuan.segment', 'r') as file_object:
+        vocab_dict = {}
+        while True:
+            if not (line := file_object.readline()):
+                break
             for word in line.decode('utf-8').split(' '):
                 if word_vector_dict.has_key(word):
                     seq.append(word_vector_dict[word])
-        else:
-            break
-    file_object.close()
 
 def vector_sqrtlen(vector):
-    len = 0
-    for item in vector:
-        len += item * item
+    len = sum(item * item for item in vector)
     len = math.sqrt(len)
     return len
 
@@ -81,9 +76,7 @@ def vector_cosine(v1, v2):
         sys.exit(1)
     sqrtlen1 = vector_sqrtlen(v1)
     sqrtlen2 = vector_sqrtlen(v2)
-    value = 0
-    for item1, item2 in zip(v1, v2):
-        value += item1 * item2
+    value = sum(item1 * item2 for item1, item2 in zip(v1, v2))
     return value / (sqrtlen1*sqrtlen2)
 
 

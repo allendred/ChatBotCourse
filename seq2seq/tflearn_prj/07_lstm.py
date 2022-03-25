@@ -76,14 +76,14 @@ predict_op = tf.argmax(py_x, 1)
 with tf.Session() as sess:
     # you need to initialize all variables
     tf.initialize_all_variables().run()
-    
+
     for i in range(100):
         for start, end in zip(range(0, len(trX), batch_size), range(batch_size, len(trX)+1, batch_size)):
             sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
-    
+
         test_indices = np.arange(len(teX))  # Get A Test Batch
         np.random.shuffle(test_indices)
-        test_indices = test_indices[0:test_size]
-        
+        test_indices = test_indices[:test_size]
+
         print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
                          sess.run(predict_op, feed_dict={X: teX[test_indices]})))

@@ -33,7 +33,7 @@ def train(samples, sess, x, y, y_, train_step):
     samples.clear_word_vector()
     test_xs, test_ys = samples.test_sets()
 
-    for i in range(10000):
+    for _ in range(10000):
         batch_xs, batch_ys = samples.next_batch(1)
         train_step.run({x: batch_xs, y_: batch_ys})
 
@@ -72,7 +72,5 @@ def main(is_predict):
 
 
 if __name__ == '__main__':
-    is_predict = True
-    if len(sys.argv) > 1 and sys.argv[1] == "train":
-        is_predict = False
+    is_predict = len(sys.argv) <= 1 or sys.argv[1] != "train"
     main(is_predict)

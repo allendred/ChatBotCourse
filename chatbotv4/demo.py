@@ -33,17 +33,41 @@ def get_samples():
         decoder_inputs: [array([1, 1], dtype=int32), array([7, 9], dtype=int32), array([ 9, 11], dtype=int32),
                         array([11, 13], dtype=int32), array([0, 0], dtype=int32)]
     """
-    train_set = [[[5, 7, 9], [11, 13, 15, EOS_ID]], [[5, 7, 9], [11, 13, 15, EOS_ID]]]
-    encoder_input_0 = [PAD_ID] * (input_seq_len - len(train_set[0][0])) + train_set[0][0]
-    encoder_input_1 = [PAD_ID] * (input_seq_len - len(train_set[1][0])) + train_set[1][0]
-    decoder_input_0 = [GO_ID] + train_set[0][1] + [PAD_ID] * (output_seq_len - len(train_set[0][1]) - 1)
-    decoder_input_1 = [GO_ID] + train_set[1][1] + [PAD_ID] * (output_seq_len - len(train_set[1][1]) - 1)
-
-    encoder_inputs = []
     decoder_inputs = []
     target_weights = []
-    for length_idx in xrange(input_seq_len):
-        encoder_inputs.append(np.array([encoder_input_0[length_idx], encoder_input_1[length_idx]], dtype=np.int32))
+    train_set = [
+        [[5, 7, 9], [11, 13, 15, EOS_ID]],
+        [[5, 7, 9], [11, 13, 15, EOS_ID]],
+    ]
+
+    encoder_input_0 = [PAD_ID] * (
+        input_seq_len - len(train_set[0][0])
+    ) + train_set[0][0]
+
+    encoder_input_1 = [PAD_ID] * (
+        input_seq_len - len(train_set[1][0])
+    ) + train_set[1][0]
+
+    decoder_input_0 = (
+        [GO_ID]
+        + train_set[0][1]
+        + [PAD_ID] * (output_seq_len - len(train_set[0][1]) - 1)
+    )
+
+    decoder_input_1 = (
+        [GO_ID]
+        + train_set[1][1]
+        + [PAD_ID] * (output_seq_len - len(train_set[1][1]) - 1)
+    )
+
+    encoder_inputs = [
+        np.array(
+            [encoder_input_0[length_idx], encoder_input_1[length_idx]],
+            dtype=np.int32,
+        )
+        for length_idx in xrange(input_seq_len)
+    ]
+
     for length_idx in xrange(output_seq_len):
         decoder_inputs.append(np.array([decoder_input_0[length_idx], decoder_input_1[length_idx]], dtype=np.int32))
         target_weights.append(np.array([
@@ -56,15 +80,20 @@ def get_samples():
 def get_model(feed_previous=False):
     """构造模型
     """
-    encoder_inputs = []
-    decoder_inputs = []
-    target_weights = []
-    for i in xrange(input_seq_len):
-        encoder_inputs.append(tf.placeholder(tf.int32, shape=[None], name="encoder{0}".format(i)))
-    for i in xrange(output_seq_len + 1):
-        decoder_inputs.append(tf.placeholder(tf.int32, shape=[None], name="decoder{0}".format(i)))
-    for i in xrange(output_seq_len):
-        target_weights.append(tf.placeholder(tf.float32, shape=[None], name="weight{0}".format(i)))
+    encoder_inputs = [
+        tf.placeholder(tf.int32, shape=[None], name="encoder{0}".format(i))
+        for i in xrange(input_seq_len)
+    ]
+
+    decoder_inputs = [
+        tf.placeholder(tf.int32, shape=[None], name="decoder{0}".format(i))
+        for i in xrange(output_seq_len + 1)
+    ]
+
+    target_weights = [
+        tf.placeholder(tf.float32, shape=[None], name="weight{0}".format(i))
+        for i in xrange(output_seq_len)
+    ]
 
     # decoder_inputs左移一个时序作为targets
     targets = [decoder_inputs[i + 1] for i in xrange(output_seq_len)]

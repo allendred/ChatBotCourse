@@ -118,8 +118,7 @@ class SubTitleSpider(scrapy.Spider):
         hrefs = response.selector.xpath('//div[contains(@class, "persub")]/h1/a/@href').extract()
         for href in hrefs:
             url = response.urljoin(href)
-            request = scrapy.Request(url, callback=self.parse_detail)
-            yield request
+            yield scrapy.Request(url, callback=self.parse_detail)
 
     def parse_detail(self, response):
         url = response.selector.xpath('//li[contains(@class, "dlsub")]/div/a/@href').extract()[0]

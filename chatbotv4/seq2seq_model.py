@@ -229,9 +229,10 @@ class Seq2SeqModel(object):
                        " %d != %d." % (len(target_weights), decoder_size))
 
     # Input feed: encoder inputs, decoder inputs, target_weights, as provided.
-    input_feed = {}
-    for l in xrange(encoder_size):
-      input_feed[self.encoder_inputs[l].name] = encoder_inputs[l]
+    input_feed = {
+        self.encoder_inputs[l].name: encoder_inputs[l]
+        for l in xrange(encoder_size)
+    }
     for l in xrange(decoder_size):
       input_feed[self.decoder_inputs[l].name] = decoder_inputs[l]
       input_feed[self.target_weights[l].name] = target_weights[l]
@@ -247,14 +248,10 @@ class Seq2SeqModel(object):
                      self.losses[bucket_id]]  # Loss for this batch.
     else:
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
-      for l in xrange(decoder_size):  # Output logits.
-        output_feed.append(self.outputs[bucket_id][l])
-
+      output_feed.extend(self.outputs[bucket_id][l] for l in xrange(decoder_size))
     outputs = session.run(output_feed, input_feed)
-    if not forward_only:
-      return outputs[1], outputs[2], None  # Gradient norm, loss, no outputs.
-    else:
-      return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
+    return ((None, outputs[0], outputs[1:]) if forward_only else
+            (outputs[1], outputs[2], None))
 
   def get_batch(self, data, bucket_id):
     """Get a random batch of data from the specified bucket, prepare for step.
@@ -293,11 +290,14 @@ class Seq2SeqModel(object):
     batch_encoder_inputs, batch_decoder_inputs, batch_weights = [], [], []
 
     # Batch encoder inputs are just re-indexed encoder_inputs.
-    for length_idx in xrange(encoder_size):
-      batch_encoder_inputs.append(
-          np.array([encoder_inputs[batch_idx][length_idx]
-                    for batch_idx in xrange(self.batch_size)], dtype=np.int32))
-
+    batch_encoder_inputs.extend(
+        np.array(
+            [
+                encoder_inputs[batch_idx][length_idx]
+                for batch_idx in xrange(self.batch_size)
+            ],
+            dtype=np.int32,
+        ) for length_idx in xrange(encoder_size))
     # Batch decoder inputs are re-indexed decoder_inputs, we create weights.
     for length_idx in xrange(decoder_size):
       batch_decoder_inputs.append(

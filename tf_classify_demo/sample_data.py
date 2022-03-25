@@ -47,10 +47,10 @@ class Maps(object):
     def __init__(self):
         self.local_word_id_map = {}
         self.local_group_id_map = {"1":0, "2":1, "3":2, "4":3, "5":4}
-        self.real_group_id_map = {}
-        for key in self.local_group_id_map:
-            value = str(self.local_group_id_map[key])
-            self.real_group_id_map[value] = int(key)
+        self.real_group_id_map = {
+            str(self.local_group_id_map[key]): int(key)
+            for key in self.local_group_id_map
+        }
 
     def get_local_word_id_map(self):
         """
@@ -100,10 +100,10 @@ class InputData(object):
         读取文件，加载数据
         """
         instance = InputData()
-        file_object = open(file_name, 'r')
-        while True:
-            line = file_object.readline(1024)
-            if line:
+        with open(file_name, 'r') as file_object:
+            while True:
+                if not (line := file_object.readline(1024)):
+                    break
                 line = line.strip()
                 if len(line) == 0:
                     continue
@@ -115,7 +115,7 @@ class InputData(object):
                     continue
                 txt = ' '.join(split[1:])
                 txt = txt.replace('None', '').strip()
-                if len(txt) == 0:
+                if not txt:
                     continue
 
                 vectors = {}
@@ -137,10 +137,6 @@ class InputData(object):
                 item = {'vectors':vectors,
                         'local_group_id':instance.maps.local_group_id_map[str(group_id)]}
                 instance.data.append(item)
-            else:
-                break
-        file_object.close()
-
         random.shuffle(instance.data)
         for _ in range(TEST_COUNT):
             instance.test_data.append(instance.data.pop())
@@ -153,7 +149,6 @@ class InputData(object):
         """
         根据文本生成输入向量
         """
-        x_s = []
         vectors = {}
         seg_list = jieba.cut(txt)
         for seg in seg_list:
@@ -165,12 +160,10 @@ class InputData(object):
                     vectors[local_word_id] = self.word_vector_dict[seg_unicode]
 
         x_array = np.zeros([self.dim_info.x_dim], dtype=np.float)
-        for word_id in vectors:
-            vector = vectors[word_id]
+        for word_id, vector in vectors.items():
             for index, weight in enumerate(vector):
                 x_array[word_id*self.dim_info.vec_dim+index] = weight
-        x_s.append(x_array)
-        return x_s
+        return [x_array]
 
 
     def next_batch(self, count):

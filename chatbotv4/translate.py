@@ -116,7 +116,7 @@ def create_model(session, forward_only):
       dtype=dtype)
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
-    print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+    print(f"Reading model parameters from {ckpt.model_checkpoint_path}")
     model.saver.restore(session, ckpt.model_checkpoint_path)
   else:
     print("Created model with fresh parameters.")
@@ -155,8 +155,8 @@ def train():
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       random_number_01 = np.random.random_sample()
-      bucket_id = min([i for i in xrange(len(train_buckets_scale))
-                       if train_buckets_scale[i] > random_number_01])
+      bucket_id = min(i for i in xrange(len(train_buckets_scale))
+                             if train_buckets_scale[i] > random_number_01)
 
       # Get a batch and make a step.
       start_time = time.time()
@@ -215,8 +215,7 @@ def decode():
     # Decode from standard input.
     sys.stdout.write("> ")
     sys.stdout.flush()
-    sentence = sys.stdin.readline()
-    while sentence:
+    while sentence := sys.stdin.readline():
       # Get token-ids for the input sentence.
       token_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(sentence), en_vocab)
       # Which bucket does it belong to?
@@ -243,7 +242,6 @@ def decode():
       print(" ".join([tf.compat.as_str(rev_fr_vocab[output]) for output in outputs]))
       print("> ", end="")
       sys.stdout.flush()
-      sentence = sys.stdin.readline()
 
 
 def self_test():

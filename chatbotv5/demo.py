@@ -37,10 +37,12 @@ num_decoder_symbols = max_token_id + 5
 def get_id_list_from(sentence):
     sentence_id_list = []
     seg_list = jieba.cut(sentence)
-    for str in seg_list:
-        id = wordToken.word2id(str)
-        if id:
-            sentence_id_list.append(wordToken.word2id(str))
+    sentence_id_list.extend(
+        wordToken.word2id(str)
+        for str in seg_list
+        if (id := wordToken.word2id(str))
+    )
+
     return sentence_id_list
 
 
@@ -91,8 +93,14 @@ def get_samples(train_set, batch_num):
     decoder_inputs = []
     target_weights = []
 
-    for length_idx in xrange(input_seq_len):
-        encoder_inputs.append(np.array([encoder_input[length_idx] for encoder_input in raw_encoder_input], dtype=np.int32))
+    encoder_inputs.extend(
+        np.array(
+            [encoder_input[length_idx] for encoder_input in raw_encoder_input],
+            dtype=np.int32,
+        )
+        for length_idx in xrange(input_seq_len)
+    )
+
     for length_idx in xrange(output_seq_len):
         decoder_inputs.append(np.array([decoder_input[length_idx] for decoder_input in raw_decoder_input], dtype=np.int32))
         target_weights.append(np.array([
@@ -120,15 +128,20 @@ def get_model(feed_previous=False):
     learning_rate = tf.Variable(float(init_learning_rate), trainable=False, dtype=tf.float32)
     learning_rate_decay_op = learning_rate.assign(learning_rate * 0.9)
 
-    encoder_inputs = []
-    decoder_inputs = []
-    target_weights = []
-    for i in xrange(input_seq_len):
-        encoder_inputs.append(tf.placeholder(tf.int32, shape=[None], name="encoder{0}".format(i)))
-    for i in xrange(output_seq_len + 1):
-        decoder_inputs.append(tf.placeholder(tf.int32, shape=[None], name="decoder{0}".format(i)))
-    for i in xrange(output_seq_len):
-        target_weights.append(tf.placeholder(tf.float32, shape=[None], name="weight{0}".format(i)))
+    encoder_inputs = [
+        tf.placeholder(tf.int32, shape=[None], name="encoder{0}".format(i))
+        for i in xrange(input_seq_len)
+    ]
+
+    decoder_inputs = [
+        tf.placeholder(tf.int32, shape=[None], name="decoder{0}".format(i))
+        for i in xrange(output_seq_len + 1)
+    ]
+
+    target_weights = [
+        tf.placeholder(tf.float32, shape=[None], name="weight{0}".format(i))
+        for i in xrange(output_seq_len)
+    ]
 
     # decoder_inputs左移一个时序作为targets
     targets = [decoder_inputs[i + 1] for i in xrange(output_seq_len)]

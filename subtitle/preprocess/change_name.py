@@ -14,6 +14,6 @@ def iterfindfiles(path, fnexp):
 i=0
 for filename in iterfindfiles(r"./", "*"):
     i=i+1
-    newfilename = str(i) + ".vtt"
+    newfilename = f'{str(i)}.vtt'
     #print filename + " <===> " + newfilename
     shutil.move(filename, newfilename)
